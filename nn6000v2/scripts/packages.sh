@@ -74,7 +74,7 @@ install_openwrt_packages() {
         luci-lib-docker luci-app-lucky luci-app-adguardhome luci-app-easytier \
         luci-app-oaf oaf open-app-filter \
         luci-app-diskman luci-app-dockerman luci-app-quickfile luci-app-passwall \
-        luci-app-tailscale-community
+        luci-app-tailscale-community daed luci-app-daed
 }
 
 clone_passwall() {
@@ -303,4 +303,20 @@ clone_luci_tailscale() {
         "" \
         "" \
         "rm -rf \"$TARGET_DIR\" 2>/dev/null || true; mv \"$TEMP_DIR/luci-app-tailscale-community\" \"$TARGET_DIR\"; rm -rf \"$TEMP_DIR\""
+}
+
+clone_daed() {
+    local DAED_REPO="${GITHUB_BASE}QiuSimons/luci-app-daed.git"
+    local DAED_DIR="$OPENWRT_PACKAGES_DIR/daed"
+    local LUCI_DAED_DIR="$OPENWRT_PACKAGES_DIR/luci-app-daed"
+    local TEMP_DIR="$OPENWRT_PACKAGES_DIR/daed-temp"
+
+    clone_packages "luci-app-daed" \
+        "$DAED_REPO" \
+        "$TEMP_DIR" \
+        "daed luci-app-daed" \
+        "" \
+        "mkdir -p \"$OPENWRT_PACKAGES_DIR\" && rm -rf \"$DAED_DIR\" \"$LUCI_DAED_DIR\" 2>/dev/null || true; mv \"$TEMP_DIR/daed\" \"$DAED_DIR\"; mv \"$TEMP_DIR/luci-app-daed\" \"$LUCI_DAED_DIR\"; rm -rf \"$TEMP_DIR\""
+
+    rm -rf "$TEMP_DIR"
 }
