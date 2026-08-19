@@ -195,6 +195,14 @@ main() {
     # 网络优化
     configure_network_optimization
 
+    # ← 在这里加入主机名设置
+    uci set system.@system[0].hostname='iStoreOS'
+    uci commit system
+
+    # 直接修改IP（不做判断，强制设置）
+    uci set network.lan.ipaddr='192.168.68.1/24'
+    uci commit network
+
     log_info "自定义配置应用完成"
 }
 
