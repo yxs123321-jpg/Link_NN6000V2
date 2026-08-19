@@ -115,7 +115,7 @@ remove_uhttpd_dependency
 # Modify kernel size to 12MB for ipq60xx devices
 modify_kernel_size() {
     local ipq60xx_mk_path="$BASE_PATH/../$BUILD_DIR/target/linux/qualcommax/image/ipq60xx.mk"
-    
+
     if [ -f "$ipq60xx_mk_path" ]; then
         # Change KERNEL_SIZE from 6144k to 12288k for link_nn6000 devices
         sed -i '/link_nn6000-common/,/endef/{s/KERNEL_SIZE := 6144k/KERNEL_SIZE := 12288k/g}' "$ipq60xx_mk_path"
@@ -133,80 +133,38 @@ if [[ $Build_Mod == "debug" ]]; then
 fi
 
 TARGET_DIR="$BASE_PATH/../$BUILD_DIR/bin/targets"
-if [[ -d $TARGET_DIR && "$Dev" != *"nowifi"* ]]; then
+if [[ -d $TARGET_DIR ]]; then
     find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec rm -f {} +
 fi
 
-if [[ "$Dev" != *"nowifi"* ]]; then
-    make download -j$(($(nproc) * 2))
-    make -j$(($(nproc) + 1)) || make -j1 V=s
-fi
+make download -j$(($(nproc) * 2))
+make -j$(($(nproc) + 1)) || make -j1 V=s
 
-if [[ -d action_build ]]; then
-    make clean
-fi
+echo ""
+echo "=============================================="
+echo "  固件编译完成！"
+echo "=============================================="
+echo ""
 
-# 如果是正常版本编译，完成后自动编译无 WiFi 版本
-if [[ "$Dev" != *"nowifi"* ]]; then
-    echo ""
-    echo "=============================================="
-    echo "  版本编译完成！"
-    echo "  开始编译无 WiFi 版本..."
-    echo "=============================================="
-    echo ""
-    
-    # 先复制带 WiFi 版本到最终目录
-    FIRMWARE_DIR="$BASE_PATH/../firmware"
-    \rm -rf "$FIRMWARE_DIR"
-    mkdir -p "$FIRMWARE_DIR"
-    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec cp -f {} "$FIRMWARE_DIR/" \;
-    
-    # 直接修改当前配置文件（禁用 WiFi）
-    cd "$BASE_PATH/../$BUILD_DIR"
-    
-    echo "应用配置..."
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath=y$/CONFIG_PACKAGE_kmod-ath=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k=y$/CONFIG_PACKAGE_kmod-ath11k=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-ahb=y$/CONFIG_PACKAGE_kmod-ath11k-ahb=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-pci=y$/CONFIG_PACKAGE_kmod-ath11k-pci=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018=y$/CONFIG_PACKAGE_ath11k-firmware-ipq6018=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y$/CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074=y$/CONFIG_PACKAGE_ath11k-firmware-qcn9074=n/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=y$/CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=n/' "$CONFIG_FILE"
-    
-    cp -f "$CONFIG_FILE" .config
-    make defconfig
-    
-    echo "编译无 WiFi 版本..."
-    make -j$(($(nproc) + 1)) || make -j1 V=s
-    
-    echo "复制固件..."
+# 复制固件到统一输出目录
+# 配置文件名(即 $Dev)如果带 "nowifi"，输出文件名自动加 _nowifi 后缀，
+# 方便和带 WiFi 版本的固件区分，不会互相覆盖。
+FIRMWARE_DIR="$BASE_PATH/../firmware"
+mkdir -p "$FIRMWARE_DIR"
+
+if [[ "$Dev" == *"nowifi"* ]]; then
     find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) | while read -r file; do
         filename=$(basename "$file")
         new_filename=$(echo "$filename" | sed 's/\.\([^.]*\)$/_nowifi.\1/')
         echo "Copying: $filename -> $new_filename"
         cp -f "$file" "$FIRMWARE_DIR/$new_filename"
     done
-    
-    # 恢复配置文件
-    echo "恢复配置文件..."
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath=n$/CONFIG_PACKAGE_kmod-ath=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k=n$/CONFIG_PACKAGE_kmod-ath11k=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-ahb=n$/CONFIG_PACKAGE_kmod-ath11k-ahb=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_kmod-ath11k-pci=n$/CONFIG_PACKAGE_kmod-ath11k-pci=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=n$/CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y/' "$CONFIG_FILE"
-    sed -i 's/^CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=n$/CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=y/' "$CONFIG_FILE"
-    
-    echo ""
-    echo "=============================================="
-    echo "  双版本已编译完成！"
-    echo "  输出目录：$FIRMWARE_DIR"
-    echo "=============================================="
-    echo ""
-    
-    if [[ -d action_build ]]; then
-        make clean
-    fi
-    
-    exit 0
+else
+    find "$TARGET_DIR" -type f \( -name "*.bin" -o -name "*.manifest" -o -name "*efi.img.gz" -o -name "*.itb" -o -name "*.fip" -o -name "*.ubi" -o -name "*rootfs.tar.gz" \) -exec cp -f {} "$FIRMWARE_DIR/" \;
+fi
+
+echo "固件已复制到：$FIRMWARE_DIR"
+
+if [[ -d action_build ]]; then
+    make clean
 fi
